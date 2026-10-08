@@ -8,11 +8,34 @@ function setRows(r,name){rows=r;$('#info').textContent=name+' · '+nf(r.length)+
  const dm={};rows.forEach(x=>dm[x.op]=dm[x.op]||x.desc);
  msBuild('maq',u('maq'));msBuild('oper',u('oper'));msBuild('op',u('op').map(([v])=>[v,v+' · '+(dm[v]||'').slice(0,40)]));
  const ds=rows.map(x=>x.d).filter(Boolean).sort();$('#f-d1').value=ds[0]||'';$('#f-d2').value=ds[ds.length-1]||'';render()}
-function load(buf,name){const wb=XLSX.read(buf,{type:'array'});const js=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:null});
- const keys=Object.keys(js[0]||{}),m={};for(const k in A)m[k]=keys.find(h=>A[k].includes(norm(h)));
- const miss=Object.keys(m).filter(k=>!m[k]);if(miss.length){alert('No encuentro estas columnas: '+miss.join(', ')+'\nEncabezados leídos: '+keys.join(', '));return}
- const t=v=>String(v??'').trim(),n=v=>+v||0;
- setRows(js.map(r=>({op:t(r[m.op]),desc:t(r[m.desc]),d:iso(r[m.fecha]),oper:t(r[m.oper]),maq:t(r[m.maq]),proc:t(r[m.proc]),min:n(r[m.min]),b:n(r[m.b]),m:n(r[m.m])})),name)}
+function load(buf, name) {
+  // Activa cellDates: true para interpretar fechas y horas correctamente
+  const wb = XLSX.read(buf, { type: 'array', cellDates: true });
+  const js = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: null });
+  
+  const keys = Object.keys(js[0] || {}), m = {};
+  for (const k in A) m[k] = keys.find(h => A[k].includes(norm(h)));
+  
+  const miss = Object.keys(m).filter(k => !m[k]);
+  if (miss.length) {
+    alert('No encuentro estas columnas: ' + miss.join(', ') + '\nEncabezados leídos: ' + keys.join(', '));
+    return;
+  }
+  
+  const t = v => String(v ?? '').trim(), n = v => +v || 0;
+  
+  setRows(js.map(r => ({
+    op: t(r[m.op]),
+    desc: t(r[m.desc]),
+    d: iso(r[m.fecha]), // Guarda la fecha y hora completa en formato YYYY-MM-THH:mm
+    oper: t(r[m.oper]),
+    maq: t(r[m.maq]),
+    proc: t(r[m.proc]),
+    min: n(r[m.min]),
+    b: n(r[m.b]),
+    m: n(r[m.m])
+  })), name);
+}
 const sel={maq:new Set(),oper:new Set(),op:new Set()},LB={maq:'Todas',oper:'Todos',op:'Todas'};
 const esc=v=>String(v).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
 function msSum(k){const s=sel[k];$('#f-'+k+' summary').textContent=!s.size?LB[k]:s.size==1?[...s][0]:s.size+' seleccionados'}
@@ -25,8 +48,21 @@ const isProd=p=>norm(p).startsWith('produccion');
 function agg(list,key){const M=new Map();for(const r of list){const k=r[key];let a=M.get(k);if(!a)M.set(k,a={k,b:0,m:0,min:0,pmin:0,rows:[]});a.b+=r.b;a.m+=r.m;a.min+=r.min;if(isProd(r.proc))a.pmin+=r.min;a.rows.push(r)}return [...M.values()].sort((x,y)=>y.b-x.b)}
 const cal=a=>a.b+a.m>0?a.b/(a.b+a.m)*100:null,bph=a=>a.pmin>0?a.b/(a.pmin/60):null,ut=a=>a.min>0?a.pmin/a.min*100:null;
 const cls=c=>c==null?'':c>=98?'g':c>=95?'w':'r',pc=c=>c==null?'–':c.toFixed(1)+'%';
-function filtered(){const d1=$('#f-d1').value,d2=$('#f-d2').value,tx=$('#f-desc').value.toLowerCase(),ok=(k,v)=>!sel[k].size||sel[k].has(v);
- return rows.filter(r=>(!d1||r.d>=d1)&&(!d2||r.d<=d2)&&ok('maq',r.maq)&&ok('oper',r.oper)&&ok('op',r.op)&&(!tx||r.desc.toLowerCase().includes(tx)))}
+function filtered() {
+  const d1 = $('#f-d1').value; // ej: "2025-05-30T08:00"
+  const d2 = $('#f-d2').value; // ej: "2025-05-30T17:30"
+  const tx = $('#f-desc').value.toLowerCase();
+  const ok = (k, v) => !sel[k].size || sel[k].has(v);
+
+  return rows.filter(r => 
+    (!d1 || r.d >= d1) && 
+    (!d2 || r.d <= d2) && 
+    ok('maq', r.maq) && 
+    ok('oper', r.oper) && 
+    ok('op', r.op) && 
+    (!tx || r.desc.toLowerCase().includes(tx))
+  );
+}
 const tr=(a,label,c)=>`<tr class="${c}"><td>${label}</td><td>${nf(a.b)}</td><td>${nf(a.m)}</td><td class="${cls(cal(a))}">${pc(cal(a))}<span class="bar"><i style="width:${cal(a)??0}%"></i></span></td><td>${nf(a.pmin)}</td><td>${bph(a)==null?'–':nf(bph(a))}</td><td>${pc(ut(a))}</td></tr>`;
 function render(){const L=filtered(),T=agg(L,'x')[0]||{b:0,m:0,min:0,pmin:0,rows:[]};
  const all=agg(L.map(r=>({...r,x:1})),'x')[0]||{b:0,m:0,min:0,pmin:0};

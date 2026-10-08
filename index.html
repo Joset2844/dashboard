@@ -49,7 +49,8 @@ tr.p td{font-weight:700;background:rgba(34,211,238,.08)}tr.c td:first-child{padd
 <label class="btn" style="flex-direction:row;color:#fff">Cargar Excel<input id="file" type="file" accept=".xlsx,.xls,.csv" hidden></label></header>
 <main>
 <section class="filters">
-<label>Desde<input type="date" id="f-d1"></label><label>Hasta<input type="date" id="f-d2"></label>
+  <label>Desde<input type="datetime-local" id="f-d1"></label>
+  <label>Hasta<input type="datetime-local" id="f-d2"></label>
 <div class="f">Máquinas<details class="ms" id="f-maq"><summary></summary><div class="opts"></div></details></div><div class="f">Operadores<details class="ms" id="f-oper"><summary></summary><div class="opts"></div></details></div>
 <div class="f">OP<details class="ms" id="f-op"><summary></summary><div class="opts"></div></details></div><label>Descripción contiene<input id="f-desc" placeholder="texto..."></label>
 </section>
