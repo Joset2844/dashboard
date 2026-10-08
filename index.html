@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dashboard KPI de tareo</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;600;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="styles.css"></head><body>
+<header><div><h1>Centro de control de producción</h1><div class="sub" id="info"></div></div>
+<label class="btn" style="flex-direction:row;color:#fff">Cargar Excel<input id="file" type="file" accept=".xlsx,.xls,.csv" hidden></label></header>
+<main>
+<section class="filters">
+<label>Desde<input type="date" id="f-d1"></label><label>Hasta<input type="date" id="f-d2"></label>
+<div class="f">Máquinas<details class="ms" id="f-maq"><summary></summary><div class="opts"></div></details></div><div class="f">Operadores<details class="ms" id="f-oper"><summary></summary><div class="opts"></div></details></div>
+<div class="f">OP<details class="ms" id="f-op"><summary></summary><div class="opts"></div></details></div><label>Descripción contiene<input id="f-desc" placeholder="texto..."></label>
+</section>
+<section class="kpis" id="kpis"></section>
+<section class="grid3"><div class="panel"><h2>Producción diaria y % calidad</h2><div id="ch-trend"></div></div><div class="panel"><h2 id="ch-rank-t">Ranking</h2><div id="ch-rank"></div><div class="lg"><i style="background:var(--cy)"></i>Buena <i style="background:var(--mg)"></i>Mala · % calidad a la derecha</div></div><div class="panel"><h2>Distribución del tiempo</h2><div id="ch-donut" class="dn"></div></div></section>
+<section class="panel">
+<div class="tools"><label>Comparativa<select id="vista">
+<option value="om">Operador › Máquina</option><option value="mo">Máquina › Operador</option>
+<option value="o">Operadores (de la máquina filtrada)</option><option value="m">Máquinas (del operador filtrado)</option></select></label>
+<div class="sub" id="hint"></div></div>
+<div class="wrap" id="tabla"></div></section>
+<section class="panel"><h2>Minutos por proceso</h2><div class="sub" style="margin-bottom:8px">Dónde se va el tiempo con los filtros actuales</div><div id="procs"></div></section>
+</main>
+<script src="datos-ejemplo.js"></script>
+<script src="app.js"></script></body></html>
