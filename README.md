@@ -17,3 +17,7 @@ Dashboard estático (HTML + JS) que lee el Excel de tareo en el navegador. No us
 3. Abre la URL que te da GitHub.
 
 Para probar en local, abre `index.html` con doble clic.
+
+## Turnos
+- Día: 07:00 a 18:59
+- Noche: 19:00 a 06:59 del día siguiente. Los registros de 00:00 a 06:59 cuentan en la jornada del día anterior.
