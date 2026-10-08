@@ -2,25 +2,53 @@ const $=s=>document.querySelector(s),nf=n=>Math.round(n).toLocaleString('es-PE')
 const norm=s=>String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f\s_]/g,'');
 const A={op:['odtcod','op'],desc:['odtdescrip','descripcion'],fecha:['fecha'],oper:['desoperador','operador'],maq:['maqdes','maquina'],proc:['proceso'],min:['minutos','minutostotalesdeproceso'],b:['pliegosparc','cantidadbuena'],m:['pliegosparcmal','cantidadmala']};
 let rows=[];
-const iso=v=>{if(typeof v=='number')return new Date(Math.round((Math.floor(v)-25569)*864e5)).toISOString().slice(0,10);const d=new Date(v);return isNaN(d)?'':d.toISOString().slice(0,10)};
+c// Formateador ISO local (YYYY-MM-DDTHH:mm) conservando horas locales
+const pad = n => String(n).padStart(2, '0');
+const iso = v => {
+  if (v == null || v === '') return '';
+  let d;
+  if (v instanceof Date) {
+    d = v;
+  } else if (typeof v === 'number') {
+    // Conversión de número serial de Excel a objeto Date de JS
+    d = new Date(Math.round((v - 25569) * 864e5));
+  } else {
+    d = new Date(v);
+  }
+  if (isNaN(d.getTime())) return String(v).trim();
+  
+  // Usar métodos locales para evitar el desfasaje de zona horaria (UTC-5)
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
 function setRows(r,name){rows=r;$('#info').textContent=name+' · '+nf(r.length)+' registros';
  const u=k=>[...new Set(rows.map(x=>x[k]))].sort().map(v=>[v,v]);
  const dm={};rows.forEach(x=>dm[x.op]=dm[x.op]||x.desc);
  msBuild('maq',u('maq'));msBuild('oper',u('oper'));msBuild('op',u('op').map(([v])=>[v,v+' · '+(dm[v]||'').slice(0,40)]));
  const ds=rows.map(x=>x.d).filter(Boolean).sort();$('#f-d1').value=ds[0]||'';$('#f-d2').value=ds[ds.length-1]||'';render()}
+// Carga de Excel usando cellDates: true
 function load(buf, name) {
-  // Activa cellDates: true para interpretar fechas y horas correctamente
   const wb = XLSX.read(buf, { type: 'array', cellDates: true });
   const js = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: null });
-  
   const keys = Object.keys(js[0] || {}), m = {};
   for (const k in A) m[k] = keys.find(h => A[k].includes(norm(h)));
-  
   const miss = Object.keys(m).filter(k => !m[k]);
   if (miss.length) {
     alert('No encuentro estas columnas: ' + miss.join(', ') + '\nEncabezados leídos: ' + keys.join(', '));
     return;
   }
+  const t = v => String(v ?? '').trim(), n = v => +v || 0;
+  setRows(js.map(r => ({
+    op: t(r[m.op]),
+    desc: t(r[m.desc]),
+    d: iso(r[m.fecha]), // Guarda YYYY-MM-DDTHH:mm
+    oper: t(r[m.oper]),
+    maq: t(r[m.maq]),
+    proc: t(r[m.proc]),
+    min: n(r[m.min]),
+    b: n(r[m.b]),
+    m: n(r[m.m])
+  })), name);
+}
   
   const t = v => String(v ?? '').trim(), n = v => +v || 0;
   
@@ -78,19 +106,31 @@ if(typeof DATA!=='undefined')setRows(DATA.map(r=>({op:r[0],desc:r[1],d:r[2],oper
 else setRows([],'Sin datos · carga un Excel');
 
 const C={cy:'#22d3ee',mg:'#ff3d8b',ye:'#fbbf24',vi:'#8b5cf6',ok:'#34e8a5'};
-function charts(L,P){
- const D=agg(L,'d').filter(a=>a.k).sort((a,b)=>a.k<b.k?-1:1),n=D.length;
- if(!n){['#ch-trend','#ch-rank','#ch-donut'].forEach(s=>$(s).innerHTML='<div class="empty">Sin datos con estos filtros</div>');return}
- const W=640,H=210,p=26,mx=Math.max(1,...D.map(a=>a.b)),bw=(W-2*p)/n,lo=Math.min(...D.map(cal).filter(c=>c!=null),99)-1;
- const bars=D.map((a,i)=>{const h=a.b/mx*(H-2*p);return `<rect x="${p+i*bw+bw*.12}" y="${H-p-h}" width="${Math.max(1,bw*.76)}" height="${h}" rx="2" fill="url(#g1)"><title>${a.k}: ${nf(a.b)} buenas, ${nf(a.m)} malas</title></rect>`}).join('');
- const pts=D.map((a,i)=>cal(a)==null?null:[(p+i*bw+bw/2).toFixed(1),(H-p-(cal(a)-lo)/(100-lo)*(H-2*p)).toFixed(1)]).filter(Boolean);
- const line=`<polyline points="${pts.join(' ')}" fill="none" stroke="${C.mg}" stroke-width="2" style="filter:drop-shadow(0 0 4px ${C.mg})"/>`+pts.map(q=>`<circle cx="${q[0]}" cy="${q[1]}" r="2.5" fill="${C.mg}"/>`).join('');
- $('#ch-trend').innerHTML=`<svg viewBox="0 0 ${W} ${H}" width="100%"><defs><linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${C.cy}"/><stop offset="1" stop-color="${C.vi}" stop-opacity=".5"/></linearGradient></defs>${bars}${line}<text x="${p}" y="${H-7}" fill="#7f93b5" font-size="11">${D[0].k}</text><text x="${W-p}" y="${H-7}" fill="#7f93b5" font-size="11" text-anchor="end">${D[n-1].k}</text></svg><div class="lg"><i style="background:${C.cy}"></i>Cantidad buena por día <i style="background:${C.mg}"></i>% calidad (escala ${lo.toFixed(0)}–100%)</div>`;
- const R=agg(L,P[0]).slice(0,10),rm=Math.max(1,...R.map(a=>a.b+a.m));
- $('#ch-rank-t').textContent='Ranking por '+(P[0]=='oper'?'operador':'máquina')+' (top 10)';
- $('#ch-rank').innerHTML=R.map(a=>`<div class="rk"><div title="${esc(a.k)}">${esc(a.k)}</div><div class="rt"><i style="width:${a.b/rm*100}%"></i><u style="width:${a.m/rm*100}%"></u></div><div class="${cls(cal(a))}">${pc(cal(a))}</div></div>`).join('');
- const S=agg(L,'proc').sort((a,b)=>b.min-a.min),tot=S.reduce((s,a)=>s+a.min,0)||1,col=[C.cy,C.mg,C.ye,C.vi,C.ok,'#64748b'];
- const top=S.slice(0,5),rest=tot-top.reduce((s,a)=>s+a.min,0),sl=rest>0?[...top,{k:'Otros',min:rest}]:top,r=52,cc=2*Math.PI*r;let off=0;
- const arcs=sl.map((a,i)=>{const f=a.min/tot,e=`<circle r="${r}" cx="70" cy="70" fill="none" stroke="${col[i]}" stroke-width="16" stroke-dasharray="${f*cc} ${cc}" stroke-dashoffset="${-off*cc}" transform="rotate(-90 70 70)"/>`;off+=f;return e}).join('');
- const pr=L.filter(x=>isProd(x.proc)).reduce((s,x)=>s+x.min,0)/tot*100;
- $('#ch-donut').innerHTML=`<svg viewBox="0 0 140 140">${arcs}<text x="70" y="68" text-anchor="middle" fill="#e8f0ff" font-size="22" font-weight="700">${pr.toFixed(0)}%</text><text x="70" y="86" text-anchor="middle" fill="#7f93b5" font-size="9">en producción</text></svg><div class="dl">${sl.map((a,i)=>`<div><i style="background:${col[i]}"></i>${esc(a.k)}<b>${(a.min/tot*100).toFixed(0)}%</b></div>`).join('')}</div>`}
+// Gráficos (agrupa por día en la gráfica de tendencia para evitar saturación)
+function charts(L, P) {
+  // Agrupar la tendencia por el día (YYYY-MM-DD)
+  const D = agg(L.map(x => ({ ...x, day: x.d.slice(0, 10) })), 'day').filter(a => a.k).sort((a, b) => a.k < b.k ? -1 : 1);
+  const n = D.length;
+  if (!n) {
+    ['#ch-trend', '#ch-rank', '#ch-donut'].forEach(s => $(s).innerHTML = '<div class="empty">Sin datos con estos filtros</div>');
+    return;
+  }
+  const W = 640, H = 210, p = 26, mx = Math.max(1, ...D.map(a => a.b)), bw = (W - 2 * p) / n, lo = Math.max(0, Math.min(...D.map(cal).filter(c => c != null), 99) - 1);
+  const bars = D.map((a, i) => {
+    const h = a.b / mx * (H - 2 * p);
+    return `<rect x="${p + i * bw + (bw - Math.min(Math.max(1, bw * .76), 28)) / 2}" y="${H - p - h}" width="${Math.min(Math.max(1, bw * .76), 28)}" height="${h}" rx="2" fill="url(#g1)"><title>${a.k}: ${nf(a.b)} buenas, ${nf(a.m)} malas</title></rect>`;
+  }).join('');
+  const pts = D.map((a, i) => cal(a) == null ? null : [(p + i * bw + bw / 2).toFixed(1), (H - p - (cal(a) - lo) / (100 - lo) * (H - 2 * p)).toFixed(1)]).filter(Boolean);
+  const line = `<polyline points="${pts.join(' ')}" fill="none" stroke="${C.mg}" stroke-width="2" style="filter:drop-shadow(0 0 4px ${C.mg})"/>` + pts.map(q => `<circle cx="${q[0]}" cy="${q[1]}" r="2.5" fill="${C.mg}"/>`).join('');
+  $('#ch-trend').innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%"><defs><linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${C.cy}"/><stop offset="1" stop-color="${C.vi}" stop-opacity=".5"/></linearGradient></defs>${bars}${line}<text x="${p}" y="${H - 7}" fill="#7f93b5" font-size="11">${D[0].k}</text><text x="${W - p}" y="${H - 7}" fill="#7f93b5" font-size="11" text-anchor="end">${D[n - 1].k}</text></svg><div class="lg"><i style="background:${C.cy}"></i>Cantidad buena por día <i style="background:${C.mg}"></i>% calidad (escala ${lo.toFixed(0)}–100%)</div>`;
+  
+  const R = agg(L, P[0]).slice(0, 10), rm = Math.max(1, ...R.map(a => a.b + a.m));
+  $('#ch-rank-t').textContent = 'Ranking por ' + (P[0] == 'oper' ? 'operador' : 'máquina') + ' (top 10)';
+  $('#ch-rank').innerHTML = R.map(a => `<div class="rk"><div title="${esc(a.k)}">${esc(a.k)}</div><div class="rt"><i style="width:${a.b / rm * 100}%"></i><u style="width:${a.m / rm * 100}%"></u></div><div class="${cls(cal(a))}">${pc(cal(a))}</div></div>`).join('');
+  
+  const S = agg(L, 'proc').sort((a, b) => b.min - a.min), tot = S.reduce((s, a) => s + a.min, 0) || 1, col = [C.cy, C.mg, C.ye, C.vi, C.ok, '#64748b'];
+  const top = S.slice(0, 5), rest = tot - top.reduce((s, a) => s + a.min, 0), sl = rest > 0 ? [...top, { k: 'Otros', min: rest }] : top, r = 52, cc = 2 * Math.PI * r; let off = 0;
+  const arcs = sl.map((a, i) => { const f = a.min / tot, e = `<circle r="${r}" cx="70" cy="70" fill="none" stroke="${col[i]}" stroke-width="16" stroke-dasharray="${f * cc} ${cc}" stroke-dashoffset="${-off * cc}" transform="rotate(-90 70 70)"/>`; off += f; return e; }).join('');
+  const pr = L.filter(x => isProd(x.proc)).reduce((s, x) => s + x.min, 0) / tot * 100;
+  $('#ch-donut').innerHTML = `<svg viewBox="0 0 140 140">${arcs}<text x="70" y="68" text-anchor="middle" fill="#e8f0ff" font-size="22" font-weight="700">${pr.toFixed(0)}%</text><text x="70" y="86" text-anchor="middle" fill="#7f93b5" font-size="9">en producción</text></svg><div class="dl">${sl.map((a, i) => `<div><i style="background:${col[i]}"></i>${esc(a.k)}<b>${(a.min / tot * 100).toFixed(0)}%</b></div>`).join('')}</div>`;
+}
